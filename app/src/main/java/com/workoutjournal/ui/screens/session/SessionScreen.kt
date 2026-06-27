@@ -5,6 +5,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -17,18 +19,22 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import com.workoutjournal.ui.components.GradientTopAppBar
-import com.workoutjournal.ui.components.ToolsMenu
-import com.workoutjournal.ui.theme.*
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.workoutjournal.WorkoutJournalApp
+import com.workoutjournal.ui.components.AppTextField
+import com.workoutjournal.ui.components.GradientTopAppBar
+import com.workoutjournal.ui.components.ToolsMenu
+import com.workoutjournal.ui.theme.*
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
@@ -53,6 +59,7 @@ fun SessionScreen(
     var showAddExerciseDialog by remember { mutableStateOf(false) }
     var showDeleteSessionDialog by remember { mutableStateOf(false) }
     var editingSet by remember { mutableStateOf<SetUi?>(null) }
+
     if (showAddExerciseDialog) {
         AddExerciseDialog(
             onAdd = { name ->
@@ -188,10 +195,10 @@ private fun ExerciseCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF181830)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(bottom = 4.dp)) {
-            // Gradient accent stripe at top of card
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -294,35 +301,79 @@ private fun Float.toDisplayString(): String =
 @Composable
 private fun AddExerciseDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add Exercise") },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                label = { Text("Exercise name") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Words,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(onDone = {
-                    if (text.isNotBlank()) onAdd(text.trim())
-                }),
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { if (text.isNotBlank()) onAdd(text.trim()) },
-                enabled = text.isNotBlank()
-            ) { Text("Add") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF0D0D1F))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF181830))
+                    .padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Add Exercise",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Brush.verticalGradient(listOf(ButtonTop, ButtonBottom))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        DumbbellIcon,
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                AppTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = "Exercise name",
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = {
+                        if (text.isNotBlank()) onAdd(text.trim())
+                    }),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+                Spacer(Modifier.width(8.dp))
+                TextButton(
+                    onClick = { if (text.isNotBlank()) onAdd(text.trim()) },
+                    enabled = text.isNotBlank()
+                ) { Text("Add") }
+            }
         }
-    )
+    }
 }
 
 @Composable
@@ -334,26 +385,64 @@ private fun EditSetDialog(set: SetUi, onSave: (Float, Int) -> Unit, onDismiss: (
         mutableStateOf(if (set.reps <= 0) "" else set.reps.toString())
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Set ${set.setNumber}") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF0D0D1F))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF181830))
+                    .padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Set ${set.setNumber}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Brush.verticalGradient(listOf(ButtonTop, ButtonBottom))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        DumbbellIcon,
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                AppTextField(
                     value = weightText,
                     onValueChange = { weightText = it },
-                    label = { Text("Weight (kg)") },
+                    label = "Weight (kg)",
+                    singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Decimal,
                         imeAction = ImeAction.Next
                     ),
-                    singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
+                AppTextField(
                     value = repsText,
                     onValueChange = { repsText = it },
-                    label = { Text("Reps") },
+                    label = "Reps",
+                    singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number,
                         imeAction = ImeAction.Done
@@ -361,18 +450,22 @@ private fun EditSetDialog(set: SetUi, onSave: (Float, Int) -> Unit, onDismiss: (
                     keyboardActions = KeyboardActions(onDone = {
                         onSave(weightText.toFloatOrNull() ?: 0f, repsText.toIntOrNull() ?: 0)
                     }),
-                    singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                onSave(weightText.toFloatOrNull() ?: 0f, repsText.toIntOrNull() ?: 0)
-            }) { Text("Save") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick = {
+                    onSave(weightText.toFloatOrNull() ?: 0f, repsText.toIntOrNull() ?: 0)
+                }) { Text("Save") }
+            }
         }
-    )
+    }
 }

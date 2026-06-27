@@ -1,6 +1,6 @@
 package com.workoutjournal.ui.components
 
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -14,14 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.workoutjournal.ui.theme.GradientEnd
-import com.workoutjournal.ui.theme.GradientEndDark
-import com.workoutjournal.ui.theme.GradientStart
-import com.workoutjournal.ui.theme.GradientStartDark
 
 @Composable
 fun GradientTopAppBar(
@@ -30,31 +24,12 @@ fun GradientTopAppBar(
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {}
 ) {
-    val isDark = isSystemInDarkTheme()
-    val gradStart = if (isDark) GradientStartDark else GradientStart
-    val gradEnd   = if (isDark) GradientEndDark   else GradientEnd
-
-    CompositionLocalProvider(LocalContentColor provides Color.White) {
+    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
         Row(
             modifier = modifier
                 .fillMaxWidth()
-                .height(44.dp)
-                .drawBehind {
-                    drawRect(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(gradStart, gradEnd),
-                            startX = 0f,
-                            endX = size.width
-                        )
-                    )
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(Color.White.copy(alpha = 0.14f), Color.Transparent),
-                            startY = 0f,
-                            endY = size.height * 0.55f
-                        )
-                    )
-                }
+                .height(56.dp)
+                .background(Color(0xFF0D0D1F))
                 .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

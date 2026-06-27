@@ -6,6 +6,7 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -17,16 +18,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -50,10 +46,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import com.workoutjournal.ui.theme.ButtonBottom
+import com.workoutjournal.ui.theme.ButtonTop
+import com.workoutjournal.ui.theme.CompassIcon
 import com.workoutjournal.ui.theme.GradientEnd
 import com.workoutjournal.ui.theme.GradientEndDark
 import com.workoutjournal.ui.theme.GradientStart
 import com.workoutjournal.ui.theme.GradientStartDark
+import com.workoutjournal.ui.theme.HammerIcon
+import com.workoutjournal.ui.theme.StopwatchIcon
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.acos
@@ -71,7 +73,6 @@ fun ToolsMenu() {
     var showTimer by remember { mutableStateOf(false) }
     var showAngle by remember { mutableStateOf(false) }
 
-    // Timer state lives here so the clock keeps running when the dialog is closed
     var timerSeconds by remember { mutableStateOf(0) }
     var timerRunning by remember { mutableStateOf(false) }
 
@@ -88,8 +89,6 @@ fun ToolsMenu() {
         RestTimerDialog(
             seconds = timerSeconds,
             running = timerRunning,
-            gradStart = gradStart,
-            gradEnd = gradEnd,
             onToggle = { timerRunning = !timerRunning },
             onReset = { timerRunning = false; timerSeconds = 0 },
             onDismiss = { showTimer = false }
@@ -104,8 +103,20 @@ fun ToolsMenu() {
     }
 
     Box {
-        IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Default.Build, contentDescription = "Tools")
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+                .clickable { expanded = true },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                HammerIcon,
+                contentDescription = "Tools",
+                tint = Color.Unspecified,
+                modifier = Modifier.size(16.dp)
+            )
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
@@ -121,12 +132,16 @@ fun ToolsMenu() {
                         }
                     }
                 },
-                leadingIcon = { Icon(Icons.Default.Timer, contentDescription = null) },
+                leadingIcon = {
+                    Icon(StopwatchIcon, contentDescription = null, tint = Color.Unspecified)
+                },
                 onClick = { expanded = false; showTimer = true }
             )
             DropdownMenuItem(
                 text = { Text("Bench Angle") },
-                leadingIcon = { Icon(Icons.Default.Explore, contentDescription = null) },
+                leadingIcon = {
+                    Icon(CompassIcon, contentDescription = null, tint = Color.Unspecified)
+                },
                 onClick = { expanded = false; showAngle = true }
             )
         }
@@ -137,35 +152,66 @@ fun ToolsMenu() {
 private fun RestTimerDialog(
     seconds: Int,
     running: Boolean,
-    gradStart: Color,
-    gradEnd: Color,
     onToggle: () -> Unit,
     onReset: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Rest Timer", fontWeight = FontWeight.SemiBold) },
-        text = {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF0D0D1F))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF181830))
+                    .padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Rest Timer",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Brush.verticalGradient(listOf(ButtonTop, ButtonBottom))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        StopwatchIcon,
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(Modifier.height(8.dp))
                 Text(
                     text = "%02d:%02d".format(seconds / 60, seconds % 60),
                     style = MaterialTheme.typography.displayMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (running) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface
+                    color = if (running) Color(0xFF08FEC0) else Color.White
                 )
                 Spacer(Modifier.height(24.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(
                         modifier = Modifier
                             .height(40.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(Brush.horizontalGradient(listOf(gradStart, gradEnd)))
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Brush.verticalGradient(colors = listOf(ButtonTop, ButtonBottom)))
                             .clickable(onClick = onToggle)
                             .padding(horizontal = 24.dp),
                         contentAlignment = Alignment.Center
@@ -185,11 +231,17 @@ private fun RestTimerDialog(
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDismiss) { Text("Close") }
+            }
         }
-    )
+    }
 }
 
 @Composable
@@ -226,37 +278,66 @@ private fun AngleMeasurementDialog(
         onDispose { sensorManager.unregisterListener(listener) }
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Bench Angle", fontWeight = FontWeight.SemiBold) },
-        text = {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF0D0D1F))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF181830))
+                    .padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Bench Angle",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Brush.verticalGradient(listOf(ButtonTop, ButtonBottom))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        CompassIcon,
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(Modifier.height(8.dp))
-
-                // Visual angle indicator
                 Canvas(modifier = Modifier.size(140.dp)) {
                     val cx = size.width / 2
                     val cy = size.height / 2
                     val r = size.minDimension / 2 - 8.dp.toPx()
 
-                    // Outer ring
                     drawCircle(
                         color = onSurfaceVariant.copy(alpha = 0.2f),
                         radius = r,
                         center = Offset(cx, cy),
                         style = Stroke(width = 2.dp.toPx())
                     )
-                    // Horizontal reference
                     drawLine(
                         color = onSurfaceVariant.copy(alpha = 0.2f),
                         start = Offset(cx - r, cy),
                         end = Offset(cx + r, cy),
                         strokeWidth = 1.dp.toPx()
                     )
-                    // Angle line
                     val rad = Math.toRadians(angle.toDouble())
                     val lineR = r * 0.78f
                     val sx = cx - (lineR * cos(rad)).toFloat()
@@ -274,7 +355,6 @@ private fun AngleMeasurementDialog(
                         strokeWidth = 4.dp.toPx(),
                         cap = StrokeCap.Round
                     )
-                    // Centre dot
                     drawCircle(
                         brush = Brush.radialGradient(
                             colors = listOf(gradEnd, gradStart),
@@ -291,7 +371,7 @@ private fun AngleMeasurementDialog(
                     text = "%.1f°".format(angle),
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = Color(0xFF08FEC0)
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
@@ -301,9 +381,15 @@ private fun AngleMeasurementDialog(
                     textAlign = TextAlign.Center
                 )
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDismiss) { Text("Close") }
+            }
         }
-    )
+    }
 }

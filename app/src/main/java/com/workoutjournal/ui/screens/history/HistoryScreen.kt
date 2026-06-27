@@ -28,8 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.workoutjournal.WorkoutJournalApp
 import com.workoutjournal.domain.model.SessionSummary
-import com.workoutjournal.ui.components.GradientTopAppBar
-import com.workoutjournal.ui.components.ToolsMenu
 import com.workoutjournal.ui.theme.*
 import java.time.Instant
 import java.time.ZoneOffset
@@ -70,29 +68,16 @@ fun HistoryScreen(
 
     Scaffold(
         modifier = modifier,
-        topBar = {
-            GradientTopAppBar(
-                title = { Text("Workout Journal") },
-                actions = { ToolsMenu() }
-            )
-        },
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
         floatingActionButton = {
-            val fabShape = RoundedCornerShape(28.dp)
+            val fabShape = RoundedCornerShape(16.dp)
             Box(
                 modifier = Modifier
                     .shadow(elevation = 6.dp, shape = fabShape)
                     .clip(fabShape)
-                    .background(Brush.horizontalGradient(colors = listOf(gradStart, gradEnd)))
-                    .drawBehind {
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(Color.White.copy(alpha = 0.14f), Color.Transparent),
-                                endY = size.height * 0.55f
-                            )
-                        )
-                    }
+                    .background(Brush.verticalGradient(colors = listOf(ButtonTop, ButtonBottom)))
                     .clickable { showDatePicker = true }
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(
@@ -158,7 +143,6 @@ private fun SessionCard(session: SessionSummary, onClick: () -> Unit) {
                     .size(48.dp)
                     .clip(CircleShape)
                     .drawBehind {
-                        // Gradient base
                         drawRect(
                             brush = Brush.linearGradient(
                                 colors = listOf(gradStart, gradEnd),
@@ -166,7 +150,6 @@ private fun SessionCard(session: SessionSummary, onClick: () -> Unit) {
                                 end = Offset(size.width, size.height)
                             )
                         )
-                        // Specular highlight — top-left gleam
                         drawCircle(
                             brush = Brush.radialGradient(
                                 colors = listOf(Color.White.copy(alpha = 0.35f), Color.Transparent),

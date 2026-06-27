@@ -1,25 +1,19 @@
 package com.workoutjournal.ui.screens.progress
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.workoutjournal.WorkoutJournalApp
-import com.workoutjournal.ui.components.GradientTopAppBar
-import com.workoutjournal.ui.components.ToolsMenu
+import com.workoutjournal.ui.components.AppTextField
 import com.workoutjournal.ui.components.ProgressLineChart
 import com.workoutjournal.ui.theme.*
 
@@ -32,16 +26,13 @@ fun ProgressScreen(modifier: Modifier = Modifier) {
 
     Scaffold(
         modifier = modifier,
-        topBar = {
-            GradientTopAppBar(
-                title = { Text("Progress") },
-                actions = { ToolsMenu() }
-            )
-        }
+        containerColor = Color(0xFF0D0D1F),
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color(0xFF0D0D1F))
                 .padding(paddingValues)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -70,9 +61,12 @@ fun ProgressScreen(modifier: Modifier = Modifier) {
                         )
                     }
                 } else {
-                    Card(
+                    Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        color = Color(0xFF181830),
+                        tonalElevation = 0.dp,
+                        shadowElevation = 2.dp,
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
@@ -118,46 +112,33 @@ fun ProgressScreen(modifier: Modifier = Modifier) {
 
 @Composable
 private fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
-    val isDark = isSystemInDarkTheme()
-    val gradStart = if (isDark) GradientStartDark else GradientStart
-    val gradEnd   = if (isDark) GradientEndDark   else GradientEnd
-    val cardShape = RoundedCornerShape(12.dp)
-
-    Box(
-        modifier = modifier
-            .clip(cardShape)
-            .background(
-                brush = Brush.linearGradient(
-                    colors = listOf(gradStart, gradEnd),
-                    start = Offset(0f, 0f),
-                    end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
+    Surface(
+        modifier = modifier,
+        color = Color(0xFF181830),
+        tonalElevation = 0.dp,
+        shadowElevation = 2.dp,
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    value,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-            )
-            .drawBehind {
-                // Gloss sheen on upper half
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(Color.White.copy(alpha = 0.18f), Color.Transparent),
-                        endY = size.height * 0.5f
-                    )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            .padding(12.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                value,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                label,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.78f)
-            )
         }
     }
 }
@@ -176,11 +157,11 @@ private fun ExerciseDropdown(
         onExpandedChange = { expanded = !expanded },
         modifier = modifier
     ) {
-        OutlinedTextField(
+        AppTextField(
             value = selected,
             onValueChange = {},
+            label = "Exercise",
             readOnly = true,
-            label = { Text("Exercise") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.menuAnchor().fillMaxWidth()
         )

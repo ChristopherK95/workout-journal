@@ -75,3 +75,6 @@ lint/tmp/
 
 # Mac
 .DS_Store
+
+# Claude Code
+.claude/

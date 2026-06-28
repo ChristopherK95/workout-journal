@@ -7,5 +7,8 @@ import androidx.room.PrimaryKey
 data class SessionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val dateEpochDay: Long,
-    val name: String = ""
+    val name: String = "",
+    val startedAtEpochSecond: Long = 0,
+    val endedAtEpochSecond: Long = 0,
+    val notes: String = ""
 )

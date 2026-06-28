@@ -1,16 +1,21 @@
 package com.workoutjournal.ui.screens.progress
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.workoutjournal.domain.model.ProgressPoint
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.workoutjournal.WorkoutJournalApp
 import com.workoutjournal.ui.components.AppTextField
@@ -61,6 +66,23 @@ fun ProgressScreen(modifier: Modifier = Modifier) {
                         )
                     }
                 } else {
+                    var showVolume by rememberSaveable { mutableStateOf(false) }
+
+                    val chartPoints = if (showVolume)
+                        uiState.volumePoints.map { ProgressPoint(it.date, it.totalVolume) }
+                    else
+                        uiState.progressPoints
+                    val chartLabel = if (showVolume) "Volume (kg)" else "Max Weight (kg)"
+                    val stat1Label = if (showVolume) "Max Volume" else "Personal Best"
+                    val stat1Value = if (showVolume)
+                        uiState.volumePoints.maxOfOrNull { it.totalVolume }?.let { "${it.toDisplayString()} kg" } ?: "—"
+                    else
+                        uiState.personalBestKg?.let { "${it.toDisplayString()} kg" } ?: "—"
+                    val stat2Value = if (showVolume)
+                        uiState.volumePoints.lastOrNull()?.totalVolume?.let { "${it.toDisplayString()} kg" } ?: "—"
+                    else
+                        uiState.lastWeightKg?.let { "${it.toDisplayString()} kg" } ?: "—"
+
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         color = Color(0xFF181830),
@@ -69,14 +91,24 @@ fun ProgressScreen(modifier: Modifier = Modifier) {
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                "Max Weight (kg)",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    chartLabel,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    ChartTab(label = "Weight", selected = !showVolume) { showVolume = false }
+                                    ChartTab(label = "Volume", selected = showVolume) { showVolume = true }
+                                }
+                            }
                             Spacer(Modifier.height(8.dp))
                             ProgressLineChart(
-                                points = uiState.progressPoints,
+                                points = chartPoints,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(220.dp)
@@ -89,13 +121,13 @@ fun ProgressScreen(modifier: Modifier = Modifier) {
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         StatCard(
-                            label = "Personal Best",
-                            value = uiState.personalBestKg?.let { "${it.toDisplayString()} kg" } ?: "—",
+                            label = stat1Label,
+                            value = stat1Value,
                             modifier = Modifier.weight(1f)
                         )
                         StatCard(
                             label = "Last Session",
-                            value = uiState.lastWeightKg?.let { "${it.toDisplayString()} kg" } ?: "—",
+                            value = stat2Value,
                             modifier = Modifier.weight(1f)
                         )
                         StatCard(
@@ -177,6 +209,26 @@ private fun ExerciseDropdown(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ChartTab(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(if (selected) Color(0xFF08FEC0).copy(alpha = 0.12f) else Color.Transparent)
+            .border(1.dp, if (selected) Color(0xFF08FEC0) else Color.White.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) Color(0xFF08FEC0) else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+        )
     }
 }
 

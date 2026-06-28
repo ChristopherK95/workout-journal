@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.workoutjournal.data.repository.WorkoutRepository
 import com.workoutjournal.domain.model.ProgressPoint
+import com.workoutjournal.domain.model.VolumePoint
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -15,6 +16,7 @@ data class ProgressUiState(
     val exerciseNames: List<String> = emptyList(),
     val selectedExercise: String = "",
     val progressPoints: List<ProgressPoint> = emptyList(),
+    val volumePoints: List<VolumePoint> = emptyList(),
     val personalBestKg: Float? = null,
     val lastWeightKg: Float? = null
 )
@@ -47,6 +49,14 @@ class ProgressViewModel(private val repository: WorkoutRepository) : ViewModel()
                             lastWeightKg = points.lastOrNull()?.maxWeightKg
                         )
                     }
+                }
+        }
+        viewModelScope.launch {
+            _selectedExercise
+                .filter { it.isNotEmpty() }
+                .flatMapLatest { name -> repository.getVolumeForExercise(name) }
+                .collect { points ->
+                    _uiState.update { it.copy(volumePoints = points) }
                 }
         }
     }

@@ -1,6 +1,8 @@
 package com.workoutjournal.ui.screens.session
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,14 +11,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,11 +35,13 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.workoutjournal.WorkoutJournalApp
 import com.workoutjournal.ui.components.AppTextField
 import com.workoutjournal.ui.components.GradientTopAppBar
+import com.workoutjournal.ui.components.TimerViewModel
 import com.workoutjournal.ui.components.ToolsMenu
 import com.workoutjournal.ui.theme.*
 import java.time.format.DateTimeFormatter
@@ -43,6 +52,7 @@ import java.time.format.FormatStyle
 fun SessionScreen(
     sessionId: Long,
     onBack: () -> Unit,
+    timerVm: TimerViewModel,
     modifier: Modifier = Modifier
 ) {
     val app = LocalContext.current.applicationContext as WorkoutJournalApp
@@ -51,6 +61,7 @@ fun SessionScreen(
         factory = SessionViewModel.Factory(app.repository, sessionId)
     )
     val uiState by viewModel.uiState.collectAsState()
+    val exerciseNames by viewModel.exerciseNames.collectAsState()
 
     LaunchedEffect(uiState.sessionDeleted) {
         if (uiState.sessionDeleted) onBack()
@@ -58,10 +69,12 @@ fun SessionScreen(
 
     var showAddExerciseDialog by remember { mutableStateOf(false) }
     var showDeleteSessionDialog by remember { mutableStateOf(false) }
+    var showSaveTemplateDialog by remember { mutableStateOf(false) }
     var editingSet by remember { mutableStateOf<SetUi?>(null) }
 
     if (showAddExerciseDialog) {
         AddExerciseDialog(
+            suggestions = exerciseNames,
             onAdd = { name ->
                 viewModel.addExercise(name)
                 showAddExerciseDialog = false
@@ -78,6 +91,17 @@ fun SessionScreen(
                 editingSet = null
             },
             onDismiss = { editingSet = null }
+        )
+    }
+
+    if (showSaveTemplateDialog) {
+        SaveTemplateDialog(
+            initialName = uiState.name,
+            onSave = { name ->
+                viewModel.saveAsTemplate(name)
+                showSaveTemplateDialog = false
+            },
+            onDismiss = { showSaveTemplateDialog = false }
         )
     }
 
@@ -118,12 +142,17 @@ fun SessionScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { viewModel.endSession(); onBack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
-                    ToolsMenu()
+                    if (uiState.exercises.isNotEmpty()) {
+                        IconButton(onClick = { showSaveTemplateDialog = true }) {
+                            Icon(Icons.Default.Bookmark, contentDescription = "Save as template")
+                        }
+                    }
+                    ToolsMenu(timerVm)
                     IconButton(onClick = { showDeleteSessionDialog = true }) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete session")
                     }
@@ -136,43 +165,104 @@ fun SessionScreen(
             }
         }
     ) { paddingValues ->
-        if (uiState.exercises.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        "No exercises yet",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Tap + to add your first exercise",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
+        LazyColumn(
+            contentPadding = PaddingValues(
+                top = paddingValues.calculateTopPadding() + 8.dp,
+                bottom = paddingValues.calculateBottomPadding() + 88.dp,
+                start = 16.dp,
+                end = 16.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item(key = "notes") {
+                NotesSection(
+                    notes = uiState.notes,
+                    onNotesChange = { viewModel.updateNotes(it) },
+                    onSaveNotes = { viewModel.saveNotes() }
+                )
+            }
+            if (uiState.exercises.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(top = 64.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "No exercises yet",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "Tap + to add your first exercise",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
                 }
             }
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(
-                    top = paddingValues.calculateTopPadding() + 8.dp,
-                    bottom = paddingValues.calculateBottomPadding() + 88.dp,
-                    start = 16.dp,
-                    end = 16.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            items(uiState.exercises, key = { it.id }) { exercise ->
+                ExerciseCard(
+                    exercise = exercise,
+                    onAddSet = { viewModel.addSet(exercise.id) },
+                    onEditSet = { set -> editingSet = set },
+                    onDuplicateSet = { setId -> viewModel.duplicateSet(setId) },
+                    onDeleteSet = { setId -> viewModel.deleteSet(setId) },
+                    onDeleteExercise = { viewModel.deleteExercise(exercise.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NotesSection(
+    notes: String,
+    onNotesChange: (String) -> Unit,
+    onSaveNotes: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    LaunchedEffect(notes.isNotBlank()) {
+        if (notes.isNotBlank()) expanded = true
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF181830)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                items(uiState.exercises, key = { it.id }) { exercise ->
-                    ExerciseCard(
-                        exercise = exercise,
-                        onAddSet = { viewModel.addSet(exercise.id) },
-                        onEditSet = { set -> editingSet = set },
-                        onDuplicateSet = { setId -> viewModel.duplicateSet(setId) },
-                        onDeleteSet = { setId -> viewModel.deleteSet(setId) },
-                        onDeleteExercise = { viewModel.deleteExercise(exercise.id) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("📝", fontSize = 18.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Session Notes", style = MaterialTheme.typography.titleSmall)
+                }
+                Icon(
+                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            AnimatedVisibility(visible = expanded) {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                    AppTextField(
+                        value = notes,
+                        onValueChange = onNotesChange,
+                        label = "How did the session go?",
+                        singleLine = false,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { if (!it.isFocused) onSaveNotes() }
                     )
                 }
             }
@@ -220,6 +310,13 @@ private fun ExerciseCard(
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
+                    exercise.estimatedOneRepMax?.let { oneRM ->
+                        Text(
+                            "~${"%.1f".format(oneRM)} kg est. 1RM",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF08FEC0)
+                        )
+                    }
                 }
                 IconButton(onClick = onDeleteExercise) {
                     Icon(
@@ -236,6 +333,10 @@ private fun ExerciseCard(
                 exercise.sets.forEach { set ->
                     SetRow(
                         set = set,
+                        isPr = exercise.allTimeBest?.let { (bestWeight, bestReps) ->
+                            set.weightKg > 0f && set.reps > 0 &&
+                                set.weightKg >= bestWeight && set.reps >= bestReps
+                        } == true,
                         onEdit = { onEditSet(set) },
                         onDuplicate = { onDuplicateSet(set.id) },
                         onDelete = { onDeleteSet(set.id) }
@@ -256,7 +357,7 @@ private fun ExerciseCard(
 }
 
 @Composable
-private fun SetRow(set: SetUi, onEdit: () -> Unit, onDuplicate: () -> Unit, onDelete: () -> Unit) {
+private fun SetRow(set: SetUi, isPr: Boolean, onEdit: () -> Unit, onDuplicate: () -> Unit, onDelete: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -272,6 +373,18 @@ private fun SetRow(set: SetUi, onEdit: () -> Unit, onDuplicate: () -> Unit, onDe
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium
         )
+        if (isPr) {
+            Text(
+                "PR",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF08FEC0),
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .border(1.dp, Color(0xFF08FEC0).copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 4.dp, vertical = 1.dp)
+            )
+            Spacer(Modifier.width(4.dp))
+        }
         IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
             Icon(Icons.Default.Edit, contentDescription = "Edit set", modifier = Modifier.size(18.dp))
         }
@@ -296,11 +409,26 @@ private fun buildSetSummary(set: SetUi): String {
 }
 
 private fun Float.toDisplayString(): String =
-    if (this == kotlin.math.floor(this)) toInt().toString() else "%.1f".format(this)
+    if (this == kotlin.math.floor(this)) toInt().toString()
+    else String.format(java.util.Locale.US, "%.1f", this)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddExerciseDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
+private fun AddExerciseDialog(
+    suggestions: List<String>,
+    onAdd: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
     var text by remember { mutableStateOf("") }
+
+    val filtered = remember(text, suggestions) {
+        if (text.isBlank()) emptyList()
+        else suggestions
+            .filter { it.contains(text.trim(), ignoreCase = true) }
+            .sortedWith(compareBy({ !it.startsWith(text.trim(), ignoreCase = true) }, { it }))
+            .take(5)
+    }
+
     Dialog(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
@@ -322,41 +450,45 @@ private fun AddExerciseDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
                     color = Color.White,
                     modifier = Modifier.weight(1f)
                 )
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Brush.verticalGradient(listOf(ButtonTop, ButtonBottom))),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        DumbbellIcon,
-                        contentDescription = null,
-                        tint = Color.Unspecified,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
+                Text("🏋️", fontSize = 22.sp)
             }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
-                AppTextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    label = "Exercise name",
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Words,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(onDone = {
-                        if (text.isNotBlank()) onAdd(text.trim())
-                    }),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                ExposedDropdownMenuBox(
+                    expanded = filtered.isNotEmpty(),
+                    onExpandedChange = {}
+                ) {
+                    AppTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        label = "Exercise name",
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Words,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(onDone = {
+                            if (text.isNotBlank()) onAdd(text.trim())
+                        }),
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = filtered.isNotEmpty(),
+                        onDismissRequest = {}
+                    ) {
+                        filtered.forEach { suggestion ->
+                            DropdownMenuItem(
+                                text = { Text(suggestion) },
+                                onClick = { onAdd(suggestion) }
+                            )
+                        }
+                    }
+                }
             }
             Row(
                 modifier = Modifier
@@ -371,6 +503,71 @@ private fun AddExerciseDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
                     onClick = { if (text.isNotBlank()) onAdd(text.trim()) },
                     enabled = text.isNotBlank()
                 ) { Text("Add") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SaveTemplateDialog(
+    initialName: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf(initialName) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF0D0D1F))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF181830))
+                    .padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Save as Template",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f)
+                )
+                Text("📋", fontSize = 22.sp)
+            }
+            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                AppTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = "Template name",
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = {
+                        if (name.isNotBlank()) onSave(name)
+                    }),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+                Spacer(Modifier.width(8.dp))
+                TextButton(
+                    onClick = { if (name.isNotBlank()) onSave(name) },
+                    enabled = name.isNotBlank()
+                ) { Text("Save") }
             }
         }
     }
@@ -406,20 +603,7 @@ private fun EditSetDialog(set: SetUi, onSave: (Float, Int) -> Unit, onDismiss: (
                     color = Color.White,
                     modifier = Modifier.weight(1f)
                 )
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Brush.verticalGradient(listOf(ButtonTop, ButtonBottom))),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        DumbbellIcon,
-                        contentDescription = null,
-                        tint = Color.Unspecified,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
+                Text("🏋️", fontSize = 22.sp)
             }
             Column(
                 modifier = Modifier
@@ -448,7 +632,10 @@ private fun EditSetDialog(set: SetUi, onSave: (Float, Int) -> Unit, onDismiss: (
                         imeAction = ImeAction.Done
                     ),
                     keyboardActions = KeyboardActions(onDone = {
-                        onSave(weightText.toFloatOrNull() ?: 0f, repsText.toIntOrNull() ?: 0)
+                        onSave(
+                            weightText.trim().replace(',', '.').toFloatOrNull() ?: set.weightKg,
+                            repsText.trim().toIntOrNull() ?: set.reps
+                        )
                     }),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -463,7 +650,10 @@ private fun EditSetDialog(set: SetUi, onSave: (Float, Int) -> Unit, onDismiss: (
                 TextButton(onClick = onDismiss) { Text("Cancel") }
                 Spacer(Modifier.width(8.dp))
                 TextButton(onClick = {
-                    onSave(weightText.toFloatOrNull() ?: 0f, repsText.toIntOrNull() ?: 0)
+                    onSave(
+                        weightText.trim().replace(',', '.').toFloatOrNull() ?: set.weightKg,
+                        repsText.trim().toIntOrNull() ?: set.reps
+                    )
                 }) { Text("Save") }
             }
         }

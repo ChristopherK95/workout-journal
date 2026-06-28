@@ -5,7 +5,8 @@ import java.time.LocalDate
 data class WorkoutSession(
     val id: Long = 0,
     val date: LocalDate,
-    val name: String = ""
+    val name: String = "",
+    val notes: String = ""
 )
 
 data class ExerciseEntry(
@@ -32,10 +33,23 @@ data class SessionSummary(
     val id: Long,
     val date: LocalDate,
     val name: String,
-    val exerciseCount: Int
+    val exerciseCount: Int,
+    val durationSeconds: Long? = null,
+    val notes: String = ""
 )
 
 data class ProgressPoint(
     val date: LocalDate,
     val maxWeightKg: Float
+)
+
+data class VolumePoint(
+    val date: LocalDate,
+    val totalVolume: Float
+)
+
+data class WorkoutTemplate(
+    val id: Long,
+    val name: String,
+    val exerciseCount: Int
 )

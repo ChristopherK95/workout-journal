@@ -9,6 +9,11 @@ data class ProgressDataPoint(
     val maxWeightKg: Float
 )
 
+data class VolumeDataPoint(
+    val dateEpochDay: Long,
+    val totalVolume: Float
+)
+
 data class LastSetData(
     val weightKg: Float,
     val reps: Int
@@ -40,6 +45,27 @@ interface SetDao {
         LIMIT 1
     """)
     suspend fun getLastBestSetForExercise(exerciseName: String, currentSessionId: Long): LastSetData?
+
+    @Query("""
+        SELECT st.weightKg, st.reps
+        FROM sets st
+        JOIN exercises e ON st.exerciseId = e.id
+        WHERE e.name = :exerciseName
+        ORDER BY st.weightKg DESC
+        LIMIT 1
+    """)
+    suspend fun getAllTimeBestForExercise(exerciseName: String): LastSetData?
+
+    @Query("""
+        SELECT s.dateEpochDay, SUM(st.weightKg * st.reps) AS totalVolume
+        FROM sessions s
+        JOIN exercises e ON e.sessionId = s.id
+        JOIN sets st ON st.exerciseId = e.id
+        WHERE e.name = :exerciseName
+        GROUP BY s.id
+        ORDER BY s.dateEpochDay ASC
+    """)
+    fun getVolumePerSessionForExercise(exerciseName: String): Flow<List<VolumeDataPoint>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSet(set: SetEntity): Long

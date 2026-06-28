@@ -8,10 +8,14 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.workoutjournal.data.repository.WorkoutRepository
 import com.workoutjournal.domain.model.WorkoutSession
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.LocalDate
 
 data class SetUi(
@@ -25,13 +29,19 @@ data class ExerciseUi(
     val id: Long,
     val name: String,
     val sets: List<SetUi>,
-    val previousBest: Pair<Float, Int>? = null
+    val previousBest: Pair<Float, Int>? = null,
+    val estimatedOneRepMax: Float? = null,
+    val allTimeBest: Pair<Float, Int>? = null
 )
+
+private fun estimateOneRepMax(weightKg: Float, reps: Int): Float =
+    weightKg * (1 + reps / 30f)
 
 data class SessionUiState(
     val sessionId: Long = 0L,
     val date: LocalDate = LocalDate.now(),
     val name: String = "",
+    val notes: String = "",
     val exercises: List<ExerciseUi> = emptyList(),
     val sessionDeleted: Boolean = false
 )
@@ -44,7 +54,18 @@ class SessionViewModel(
     private val _uiState = MutableStateFlow(SessionUiState(sessionId = sessionId))
     val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
 
+    val exerciseNames: StateFlow<List<String>> = repository.getAllExerciseNames()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     init {
+        viewModelScope.launch {
+            repository.setSessionStarted(sessionId, Instant.now().epochSecond)
+        }
+        viewModelScope.launch {
+            repository.getSessionFlow(sessionId).first()?.let { session ->
+                _uiState.update { it.copy(notes = session.notes) }
+            }
+        }
         viewModelScope.launch {
             repository.getSessionFlow(sessionId).collect { session ->
                 session?.let {
@@ -61,7 +82,12 @@ class SessionViewModel(
                         sets = eWithSets.sets.map { s ->
                             SetUi(id = s.id, setNumber = s.setNumber, weightKg = s.weightKg, reps = s.reps)
                         },
-                        previousBest = repository.getLastBestSetForExercise(eWithSets.exercise.name, sessionId)
+                        previousBest = repository.getLastBestSetForExercise(eWithSets.exercise.name, sessionId),
+                        estimatedOneRepMax = eWithSets.sets
+                            .filter { it.reps in 1..9 && it.weightKg > 0f }
+                            .maxByOrNull { estimateOneRepMax(it.weightKg, it.reps) }
+                            ?.let { estimateOneRepMax(it.weightKg, it.reps) },
+                        allTimeBest = repository.getAllTimeBestForExercise(eWithSets.exercise.name)
                     )
                 }
                 _uiState.update { it.copy(exercises = exercisesUi) }
@@ -75,8 +101,17 @@ class SessionViewModel(
 
     fun saveSessionName() {
         viewModelScope.launch {
-            val state = _uiState.value
-            repository.updateSession(WorkoutSession(id = sessionId, date = state.date, name = state.name))
+            repository.saveSessionName(sessionId, _uiState.value.name)
+        }
+    }
+
+    fun updateNotes(notes: String) {
+        _uiState.update { it.copy(notes = notes) }
+    }
+
+    fun saveNotes() {
+        viewModelScope.launch {
+            repository.saveNotes(sessionId, _uiState.value.notes)
         }
     }
 
@@ -113,6 +148,21 @@ class SessionViewModel(
             val source = exercise.sets.find { it.id == setId } ?: return@launch
             val nextSetNumber = exercise.sets.size + 1
             repository.addSet(exercise.id, nextSetNumber, source.weightKg, source.reps)
+        }
+    }
+
+    fun endSession() {
+        viewModelScope.launch {
+            repository.setSessionEnded(sessionId, Instant.now().epochSecond)
+        }
+    }
+
+    fun saveAsTemplate(name: String) {
+        viewModelScope.launch {
+            val exerciseNames = _uiState.value.exercises.map { it.name }
+            if (exerciseNames.isNotEmpty()) {
+                repository.saveAsTemplate(name.trim(), exerciseNames)
+            }
         }
     }
 
